@@ -10,63 +10,19 @@ The error Message is importent! it will be written in the audit log and help the
 
 import { Client, Request } from '@pepperi-addons/debug-server'
 import { PapiClient } from '@pepperi-addons/papi-sdk';
-import { realationsTableScheme } from './entities';
+import { relationsTableScheme } from './entities';
 
 export async function install(client: Client, request: Request): Promise<any> {
     const papiClient = new PapiClient({
         baseURL: client.BaseURL,
         token: client.OAuthAccessToken,
         addonUUID: client.AddonUUID,
-        addonSecretKey: client.AddonSecretKey
+        addonSecretKey: client.AddonSecretKey,
+        actionUUID: client.ActionUUID
     });
-
-    return await createADALScheme(papiClient);    
-}
-
-export async function uninstall(client: Client, request: Request): Promise<any> {
-    const papiClient = new PapiClient({
-        baseURL: client.BaseURL,
-        token: client.OAuthAccessToken,
-        addonUUID: client.AddonUUID,
-        addonSecretKey: client.AddonSecretKey
-    });
-
-    // var headersADAL = {
-    //     "X-Pepperi-OwnerID": client.AddonUUID,
-    //     "X-Pepperi-SecretKey": client.AddonSecretKey
-    // }
-
-    // papiClient.post(`/addons/data/schemes/${realationsTableScheme.Name}/purge`, null, headersADAL);
+    
     try {
-        await papiClient.addons.data.schemes.purge(realationsTableScheme.Name);
-        return {success:true,resultObject:{}}
-    }
-    catch(err) {
-        return {
-            success: false,
-            errorMessage: 'Could not remove ADAL Table. ' + ('message' in err) ? 'Got error ' + err.message : 'Unknown error occured.',
-        }
-    }
-}
-
-export async function upgrade(client: Client, request: Request): Promise<any> {
-    const papiClient = new PapiClient({
-        baseURL: client.BaseURL,
-        token: client.OAuthAccessToken,
-        addonUUID: client.AddonUUID,
-        addonSecretKey: client.AddonSecretKey
-    });
-
-    return await createADALScheme(papiClient);
-}
-
-export async function downgrade(client: Client, request: Request): Promise<any> {
-    return {success:true,resultObject:{}}
-}
-
-async function createADALScheme(papiClient: PapiClient) {
-    try {
-        await papiClient.addons.data.schemes.post(realationsTableScheme);
+        await papiClient.addons.data.schemes.post(relationsTableScheme);
         return {
             success: true,
             errorMessage: ""
@@ -77,5 +33,37 @@ async function createADALScheme(papiClient: PapiClient) {
             success: false,
             errorMessage: 'Could not create ADAL Table. ' + ('message' in err) ? 'Got error ' + err.message : 'Unknown error occured.',
         }
+    }    
+}
+
+export async function uninstall(client: Client, request: Request): Promise<any> {
+    const papiClient = new PapiClient({
+        baseURL: client.BaseURL,
+        token: client.OAuthAccessToken,
+        addonUUID: client.AddonUUID,
+        addonSecretKey: client.AddonSecretKey,
+        actionUUID: client.ActionUUID
+    });
+
+    try {
+        await papiClient.addons.data.schemes.purge(relationsTableScheme.Name);
     }
+    catch(err) {
+        const message = ('message' in err) ? 'Got error ' + err.message : 'Unknown error occured.'
+        console.error(`Could not remove ADAL Table. ${message}`);
+    }
+    finally {
+        return {
+            success:true,
+            resultObject:{}
+        }
+    }
+}
+
+export async function upgrade(client: Client, request: Request): Promise<any> {
+    return {success:true,resultObject:{}}
+}
+
+export async function downgrade(client: Client, request: Request): Promise<any> {
+    return {success:true,resultObject:{}}
 }

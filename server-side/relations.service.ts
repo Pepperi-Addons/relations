@@ -1,6 +1,6 @@
 import { PapiClient, InstalledAddon, AddonDataScheme } from '@pepperi-addons/papi-sdk'
 import { Client, Request } from '@pepperi-addons/debug-server'
-import { realationsTableScheme } from './entities';
+import { relationsTableScheme } from './entities';
 import config from '../addon.config.json'
 
 class RelationsService {
@@ -8,82 +8,83 @@ class RelationsService {
     papiClient: PapiClient
 
     constructor(private client: Client, request: Request) {
-        const addonUUID = request.method === 'POST' ? request.body['AddonUUID'] : client.AddonUUID;
         this.papiClient = new PapiClient({
             baseURL: client.BaseURL,
             token: client.OAuthAccessToken,
+            actionUUID: client.ActionUUID,
             addonSecretKey: client.AddonSecretKey,
-            addonUUID: addonUUID
+            addonUUID: client.AddonUUID
         });
     }
 
-    async upsert(request: Request){
+    async upsert(client:Client, request: Request){
         const body = request.body;
-        this.validatePostData(request);
-        body['Key'] = `${body['RelationName']}_${body['AddonUUID']}_${body['Name']}`;
-        await this.papiClient.addons.data.uuid(config.AddonUUID).table(realationsTableScheme.Name).upsert(body);
+        await this.validatePostData(client, request);
+        body['Key'] = `${body['Name']}_${body['AddonUUID']}_${body['RelationName']}`;
+        await this.papiClient.addons.data.uuid(config.AddonUUID).table(relationsTableScheme.Name).upsert(body);
     }
 
     async find(query:any){
         if(query.key != null) {
-            return this.papiClient.addons.data.uuid(config.AddonUUID).table(realationsTableScheme.Name).key(query.key).get();
+            return this.papiClient.addons.data.uuid(config.AddonUUID).table(relationsTableScheme.Name).key(query.key).get();
         }
         else {
-            return this.papiClient.addons.data.uuid(config.AddonUUID).table(realationsTableScheme.Name).find(query);
+            return this.papiClient.addons.data.uuid(config.AddonUUID).table(relationsTableScheme.Name).find(query);
         }
     }
 
-    private async validatePostData(request: any) {
+    private async validatePostData(client:Client, request: Request) {
         const body = request.body;
         const ownerUUID = (request.header['X-Pepperi-OwnerID'] == null ? null : request.header['X-Pepperi-OwnerID'].toLowerCase());
-        if(body['RelationName'] == null) {
-            throw new Error('RelationName is a required field');
-        }
-        if(body['Name'] == null) {
-            throw new Error('Name is a required field');
-        }
-        if(body['AddonUUID'] == null) {
-            throw new Error('AddonUUID is a required field');
-        }
-        if(body['AddonUUID'] != ownerUUID) {
+        const addonSecretKey = (request.header['X-Pepperi-SecretKey'] == null ? null : request.header['X-Pepperi-SecretKey'].toLowerCase());
+        await this.validateOwner(body['AddonUUID'], ownerUUID, addonSecretKey, client);
+        this.validateParam(body, 'RelationName');
+        this.validateParam(body, 'Name');
+        this.validateParam(body, 'AddonUUID');
+        this.validateParam(body, 'Type'); 
+        this.validateTypeParams(body);
+    }
+
+    async validateOwner(addonUUID:string, ownerUUID: string, secretKey: string, client: Client) {
+        if(addonUUID != ownerUUID) {
             throw new Error('AddonUUID must be equal to X-Pepperi-OwnerID header value');
         }
-        //When creating the object, Type should be mandatory
-        if((await this.itemExists(body['RelationName'], body['AddonUUID'], body['Name'])) == false) {
-            if(body['Type'] == null) {
-                throw new Error('Type is a required field when creating new relation');
-            }
-            this.validateTypeParams(body);
+        try {
+            const papiClient = new PapiClient({
+                baseURL: client.BaseURL,
+                token: client.OAuthAccessToken,
+                actionUUID: client.ActionUUID,
+                addonSecretKey: secretKey,
+                addonUUID: addonUUID
+            });
+            // var headersADAL = {
+            //     "X-Pepperi-SecretKey": secretKey
+            // }
+
+            await papiClient.apiCall('GET', `/var/sk/addons/${addonUUID}/validate`);
+
+            // await this.papiClient.addons.api.uuid(ADAL_UUID).file('api').func('addon_validate').get({
+            //     addon_uuid: addonUUID
+            // });
+        }
+        catch(err) {
+            console.error('got error: ', JSON.stringify(err));
+            throw new Error('secret key must match to addon UUID')
         }
     }
 
     private validateTypeParams(body:any) {
         switch (body['Type']) {
             case 'NgComponent': {
-                if(body['SubType'] == null) {
-                    throw new Error('SubType is a required field on NgComponent relation Type');
-                }
-                if(body['ComponentName'] == null) {
-                    throw new Error('ComponentName is a required field on NgComponent relation Type');
-                }
-                if(body['ModuleName'] == null) {
-                    throw new Error('ModuleName is a required field on NgComponent relation Type');
-                }
-                if(body['AddonRelativeURL'] == null) {
-                    throw new Error('AddonRelativeURL is a required field on NgComponent relation Type');
-                }
+                this.validateParam(body, 'SubType');
+                this.validateParam(body, 'ComponentName');
+                this.validateParam(body, 'ModuleName');
+                this.validateParam(body, 'AddonRelativeURL');
                 break;
             }
-            case 'Navigate': {
-                if(body['AddonRelativeURL'] == null) {
-                    throw new Error('AddonRelativeURL is a required field on Navigate relation Type');
-                }
-                break;
-            }
+            case 'Navigate':
             case 'AddonAPI': {
-                if(body['AddonRelativeURL'] == null) {
-                    throw new Error('AddonRelativeURL is a required field on AddonApi relation Type');
-                }
+                this.validateParam(body, 'AddonRelativeURL');
                 break;
             }
             default: {
@@ -91,20 +92,10 @@ class RelationsService {
             }
         }
     }
-
-    private async itemExists(relationName: string, addonUUID:string, name:string): Promise<boolean> {
-        try {
-            let key = `${relationName}_${addonUUID}_${name}`;
-            let data = await this.papiClient.addons.data.uuid(addonUUID).table(realationsTableScheme.Name).key(key).get();
-            if(data.AddonUUID === addonUUID && data.Name === name){
-                return true;
-            }
-            else {
-                return false;
-            }
-        }
-        catch(err) {
-            return false;
+    
+    validateParam(obj:any, paramName:string) {
+        if(obj[paramName] == null) {
+            throw new Error(`${paramName} is a required field`);
         }
     }
 }

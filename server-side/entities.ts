@@ -1,6 +1,6 @@
 import { AddonDataScheme } from "@pepperi-addons/papi-sdk";
 
-export const realationsTableScheme: AddonDataScheme = {
+export const relationsTableScheme: AddonDataScheme = {
     Name:'AddonRelations',
     Type:'indexed_data',
     Fields:{
