@@ -98,6 +98,17 @@ class RelationsService {
             throw new Error(`${paramName} is a required field`);
         }
     }
+
+    async deleteAddonRelations(addonUUID: string) {
+        const relations = await this.find({
+            where: `AddonUUID=${addonUUID}`
+        })
+        if (relations) {
+            relations.forEach(async (relation) => {
+                await this.papiClient.addons.data.uuid(config.AddonUUID).table(relationsTableScheme.Name).key(relation.Key).hardDelete(true);
+            })
+        }
+    }
 }
 
 export default RelationsService;

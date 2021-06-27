@@ -23,6 +23,20 @@ export async function install(client: Client, request: Request): Promise<any> {
     
     try {
         await papiClient.addons.data.schemes.post(relationsTableScheme);
+        await papiClient.notification.subscriptions.upsert({
+            Key:"uninstall_relations_subscription",
+            AddonUUID: client.AddonUUID,
+            AddonRelativeURL: '/api/uninstall_relations',
+            Type: 'data',
+            Name: 'uninstall_relations_subscription',
+            FilterPolicy: {
+                Action:['update'],
+                ModifiedFields:['Hidden'],
+                Resource:['installed_addons'],
+                AddonUUID:['00000000-0000-0000-0000-000000000a91']
+            }
+        })
+           
         return {
             success: true,
             errorMessage: ""
@@ -47,6 +61,16 @@ export async function uninstall(client: Client, request: Request): Promise<any> 
 
     try {
         await papiClient.addons.data.schemes.purge(relationsTableScheme.Name);
+        await papiClient.notification.subscriptions.upsert({
+            Hidden: true,
+            Key:"uninstall_relations_subscription",
+            AddonUUID: client.AddonUUID,
+            AddonRelativeURL: '/api/uninstall_relations',
+            Type: 'data',
+            Name: 'uninstall_relations_subscription',
+            FilterPolicy: {
+            }
+        })
     }
     catch(err) {
         const message = ('message' in err) ? 'Got error ' + err.message : 'Unknown error occured.'
