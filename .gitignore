@@ -1,3 +1,5 @@
+node_modules/**
+publish/**
 /publish/api
 /publish/editors
 var_sk
