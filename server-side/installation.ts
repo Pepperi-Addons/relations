@@ -45,7 +45,7 @@ export async function install(client: Client, request: Request): Promise<any> {
     catch (err) {
         return {
             success: false,
-            errorMessage: 'message' in (err as any) ? 'Could not create ADAL Table. ' +  (err as any).message : 'Unknown error occured'
+            errorMessage: err instanceof Error ? 'Could not create ADAL Table. ' +  (err as Error).message : 'Unknown error occured'
         }
     }    
 }
@@ -77,7 +77,7 @@ export async function uninstall(client: Client, request: Request): Promise<any> 
         })
     }
     catch(err) {
-        const message =  'message' in (err as any) ? 'Got error:' +  (err as any).message : 'Unknown error occured'
+        const message =  err instanceof Error ? 'Got error:' +  (err as Error).message : `Unknown error occured `
         console.error(`Could not remove ADAL Table. ${message}`);
     }
     finally {
