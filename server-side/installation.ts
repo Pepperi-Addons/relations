@@ -45,7 +45,7 @@ export async function install(client: Client, request: Request): Promise<any> {
     catch (err) {
         return {
             success: false,
-            errorMessage: 'Could not create ADAL Table. ' + ('message' in err) ? 'Got error ' + err.message : 'Unknown error occured.',
+            errorMessage: err instanceof Error ? 'Could not create ADAL Table. ' +  (err as Error).message : 'Unknown error occured'
         }
     }    
 }
@@ -60,7 +60,11 @@ export async function uninstall(client: Client, request: Request): Promise<any> 
     });
 
     try {
-        await papiClient.addons.data.schemes.purge(relationsTableScheme.Name);
+        //await papiClient.addons.data.schemes.purge(relationsTableScheme.Name);
+        // calling endpoint directly - no purge in papi sdk
+        console.log("removing the table containing all relations - should be epty by now");
+        await papiClient.post(`addons/data/schemes/${relationsTableScheme.Name}/purge`, {});
+        console.log("unsibscribe to PNS, we are uninstalling the addon, in theory, this should also be done by PNS addon");
         await papiClient.notification.subscriptions.upsert({
             Hidden: true,
             Key:"uninstall_relations_subscription",
@@ -73,7 +77,7 @@ export async function uninstall(client: Client, request: Request): Promise<any> 
         })
     }
     catch(err) {
-        const message = ('message' in err) ? 'Got error ' + err.message : 'Unknown error occured.'
+        const message =  err instanceof Error ? 'Got error:' +  (err as Error).message : `Unknown error occured `
         console.error(`Could not remove ADAL Table. ${message}`);
     }
     finally {
