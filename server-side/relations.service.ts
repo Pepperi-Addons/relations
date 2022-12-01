@@ -1,4 +1,4 @@
-import { PapiClient, InstalledAddon, AddonDataScheme } from '@pepperi-addons/papi-sdk'
+import { PapiClient, Relation } from '@pepperi-addons/papi-sdk'
 import { Client, Request } from '@pepperi-addons/debug-server'
 import { relationsTableScheme } from './entities';
 import config from '../addon.config.json'
@@ -102,10 +102,11 @@ class RelationsService {
     async deleteAddonRelations(addonUUID: string) {
         const relations = await this.find({
             where: `AddonUUID=${addonUUID}`
-        })
+        }) as Relation[];
+        console.log(`About to delete relations:${JSON.stringify(relations.map(x=>{return x.Key}))}`)
         if (relations) {
             relations.forEach(async (relation) => {
-                await this.papiClient.addons.data.uuid(config.AddonUUID).table(relationsTableScheme.Name).key(relation.Key).hardDelete(true);
+                await this.papiClient.addons.data.uuid(config.AddonUUID).table(relationsTableScheme.Name).key(relation.Key!).hardDelete(true);
             })
         }
     }
